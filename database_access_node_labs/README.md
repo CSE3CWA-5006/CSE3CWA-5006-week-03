@@ -84,9 +84,4 @@ All labs use the same teaching dataset:
 
 The aim is not to make every database look identical. The aim is to show how the same classroom information is represented differently in relational, document, and graph systems.
 
-## Matching LMS files
 
-- LMS teaching page: `database_access_node_lms/database_access_in_node.html`
-- LMS lab page: `lab_introduction_lms.html`
-
-These files were aligned with this code pack so that the explanations, installation steps and CRUD demonstrations describe the same workflow.
