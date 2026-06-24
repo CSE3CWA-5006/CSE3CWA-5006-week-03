@@ -1,0 +1,20 @@
+{
+  "name": "cwa-mongodb-prisma-crud-lab",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "setup": "bash ./setup_ubuntu_mongodb_prisma.sh",
+    "start": "node index.js",
+    "crud": "node index.js",
+    "prisma:generate": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "latest",
+    "dotenv": "latest",
+    "prisma": "latest"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

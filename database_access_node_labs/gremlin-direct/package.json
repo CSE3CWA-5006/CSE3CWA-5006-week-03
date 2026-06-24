@@ -1,0 +1,18 @@
+{
+  "name": "cwa-gremlin-tinkergraph-crud-lab",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "setup": "bash ./setup_ubuntu_tinkergraph.sh",
+    "start": "node index.js",
+    "crud": "node index.js"
+  },
+  "dependencies": {
+    "dotenv": "latest",
+    "gremlin": "latest"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
