@@ -1,0 +1,21 @@
+{
+  "name": "week3-lab2-postgresql-prisma",
+  "version": "1.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "generate": "prisma generate",
+    "start": "node prisma_crud.js"
+  },
+  "engines": {
+    "node": ">=22.11.0"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "dotenv": "16.4.7"
+  },
+  "devDependencies": {
+    "prisma": "6.19.3"
+  }
+}

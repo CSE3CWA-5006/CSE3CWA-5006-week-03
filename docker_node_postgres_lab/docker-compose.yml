@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: cwa-postgres-lab
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: university_user
+      POSTGRES_PASSWORD: "123456"
+      POSTGRES_DB: university_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U university_user -d university_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  postgres_data:

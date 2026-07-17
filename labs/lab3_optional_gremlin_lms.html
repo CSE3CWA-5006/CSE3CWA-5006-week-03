@@ -1,0 +1,76 @@
+<!--
+  Week 3 Lab V2 teaching page.
+  Copyright (C) 2026 Dr Shuo Ding <shuoding@outlook.com>.
+  Licensed under AGPL-3.0-or-later. Copies and modified versions must retain this notice.
+-->
+<h3>Lab 3 Optional: Graph Data with TinkerGraph and Gremlin</h3>
+<p><strong>Copyright and licence:</strong> Copyright (C) 2026 Dr Shuo Ding &lt;shuoding@outlook.com&gt;. This teaching page and its accompanying code are released under the GNU Affero General Public License version 3 or later (AGPL-3.0-or-later). Copies and modified versions must retain the original author and licence notice.</p>
+<h4>Lab goal</h4>
+<p>This optional lab is mainly for CSE5006 students. You will install Apache TinkerPop Gremlin Server, start a local graph database, and run a Node.js program that creates vertices and edges. This is not required for every student, but it is useful if you want to understand why graph databases are powerful for relationships and paths.</p>
+<div class="alert alert-success"
+  style="background-color: #d9ebd0; color: #242424; margin: 0 auto; max-width: 800px;"
+  role="alert">
+  <div class="row">
+    <div class="col-1">
+      <p class="fa fa-lightbulb-o" style="font-size: 1.5rem;"
+        aria-hidden="true">&nbsp;</p>
+    </div>
+    <div class="col-11">
+      <p><strong>Big idea</strong></p>
+      <p>SQL focuses on tables. MongoDB focuses on documents. Graph databases focus on relationships. A graph query often asks: who is connected to whom, through what path?</p>
+    </div>
+  </div>
+</div>
+<h4>Step 1: Start from the lab folder</h4>
+<p>Begin from the unzipped lab root. We store the root path in <code>LAB_ROOT</code> because this lab later moves to your home directory to install Gremlin Server.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">cd ~/Downloads/lab-v2
+LAB_ROOT="$PWD"
+pwd
+ls</pre>
+<h4>Step 2: Install Java and unzip</h4>
+<p>Gremlin Server runs on Java. Install Java and the small tools needed to download and extract the server package.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">sudo apt-get update
+sudo apt-get install -y openjdk-17-jre-headless unzip curl
+java -version</pre>
+<h4>Step 3: Download Gremlin Server</h4>
+<p>Use Gremlin Server 3.7.6 and the matching Node.js client version. This avoids known WebSocket compatibility problems that can appear when older Gremlin clients are used with modern Node.js 22 environments. The command uses <code>-fL</code> so download errors fail clearly, and <code>--retry 3</code> to reduce temporary network failure problems. If the folder already exists, it will not unzip again.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">cd ~
+if [ ! -d "$HOME/apache-tinkerpop-gremlin-server-3.7.6" ]; then
+  curl -fL --retry 3 https://dlcdn.apache.org/tinkerpop/3.7.6/apache-tinkerpop-gremlin-server-3.7.6-bin.zip -o apache-tinkerpop-gremlin-server-3.7.6-bin.zip
+  unzip -q apache-tinkerpop-gremlin-server-3.7.6-bin.zip
+fi
+ls "$HOME/apache-tinkerpop-gremlin-server-3.7.6"</pre>
+<h4>Step 4: Install the Node.js dependencies</h4>
+<p>Return to the lab code folder before installing npm dependencies. The package uses <code>gremlin</code> 3.7.6 and a supplied <code>package-lock.json</code>, so <code>npm ci</code> installs exactly the dependency tree tested for this lab.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">cd "$LAB_ROOT/lab3-optional-gremlin"
+npm ci</pre>
+<h4>Step 5: Start Gremlin Server</h4>
+<p>Use two terminals. Terminal 1 keeps the graph server running.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">cd ~/apache-tinkerpop-gremlin-server-3.7.6
+./bin/gremlin-server.sh conf/gremlin-server-modern.yaml</pre>
+<p>Leave this terminal open. If you close it, the Node.js client cannot connect to <code>ws://localhost:8182/gremlin</code>.</p>
+<h4>Step 6: Run the Node.js graph CRUD demo</h4>
+<p>Open Terminal 2 and run the Node.js code from the lab folder.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">cd ~/Downloads/lab-v2/lab3-optional-gremlin
+npm start</pre>
+<p>The connected-student query now excludes Alice herself. It asks: which other student shares an enrolled course with Alice?</p>
+<h4>Step 7: Modify the graph code yourself</h4>
+<p>Open <code>gremlin_crud.js</code>.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">code gremlin_crud.js</pre>
+<ul>
+  <li>Change <code>Alice Chen</code> or <code>Emma Li</code> to another fake name.</li>
+  <li>Add a new student vertex by copying one of the <code>addV('student')</code> lines.</li>
+  <li>Add a new edge from that student to the Python course.</li>
+  <li>Run <code>npm start</code> again and inspect how the connected-student query changes.</li>
+</ul>
+<h4>Step 8: Stop Gremlin Server</h4>
+<p>Return to Terminal 1 and press <code>Ctrl + C</code>. This stops Gremlin Server.</p>
+<h4>Expected outcome</h4>
+<p>By the end of this optional lab, you should be able to explain the difference between a row, a document, and a graph relationship. You should also understand why graph databases are useful when the question is about paths, connections and indirect relationships.</p>

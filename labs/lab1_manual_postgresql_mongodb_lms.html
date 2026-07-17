@@ -1,0 +1,290 @@
+<!--
+  Week 3 Lab V2 teaching page.
+  Copyright (C) 2026 Dr Shuo Ding <shuoding@outlook.com>.
+  Licensed under AGPL-3.0-or-later. Copies and modified versions must retain this notice.
+-->
+<h3>Lab 1: Manual PostgreSQL and MongoDB Access with Node.js</h3>
+<p><strong>Copyright and licence:</strong> Copyright (C) 2026 Dr Shuo Ding &lt;shuoding@outlook.com&gt;. This teaching page and its accompanying code are released under the GNU Affero General Public License version 3 or later (AGPL-3.0-or-later). Copies and modified versions must retain the original author and licence notice.</p>
+<h4>Lab goal</h4>
+<p>In this lab you will install PostgreSQL and MongoDB on Ubuntu, create a small teaching dataset by hand, test CRUD operations directly in the database console, and then run Node.js code that performs the same kind of CRUD operations from an application.</p>
+<p>This lab is deliberately step by step. Do not rush to <code>npm start</code>. A database-backed application only makes sense when you understand the database service, the database user, the connection string, the table or collection, and the code that sends operations to the database.</p>
+<div class="alert alert-success"
+  style="background-color: #d9ebd0; color: #242424; margin: 0 auto; max-width: 800px;"
+  role="alert">
+  <div class="row">
+    <div class="col-1">
+      <p class="fa fa-lightbulb-o" style="font-size: 1.5rem;"
+        aria-hidden="true">&nbsp;</p>
+    </div>
+    <div class="col-11">
+      <p><strong>Important safety note</strong></p>
+      <p>Run these commands only inside your dedicated course Ubuntu VM. This lab installs database services, changes local configuration files, and resets teaching data. Do not run it on a production server or on a machine that already has important PostgreSQL or MongoDB data.</p>
+    </div>
+  </div>
+</div>
+<h4>Step 1: Start from the lab folder</h4>
+<p>After you unzip the lab package, move into the lab root folder first. All later relative paths assume you are starting from this folder.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">cd ~/Downloads/lab-v2
+pwd
+ls</pre>
+<p>You should see <code>lab1-direct-postgresql-mongodb</code>, <code>lab2-postgresql-prisma</code>, and <code>lab3-optional-gremlin</code>.</p>
+<h4>Step 2: Check Ubuntu and Node.js</h4>
+<p>This lab is written for Ubuntu 22.04 or Ubuntu 24.04. It requires Node.js 22.11.0 or newer. Node.js 22 LTS is recommended for consistency, but newer stable versions such as Node.js 24 can also be used.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">cat /etc/os-release
+node -v
+npm -v</pre>
+<p>If Node.js is missing or older than 22.11.0, install Node.js 22 LTS first. If your machine already has a newer stable version such as Node.js 24, you can keep using it for this lab.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+node -e "const [major, minor] = process.versions.node.split('.').map(Number); if (major < 22 || (major === 22 && minor < 11)) { console.error('Node.js 22.11.0 or newer is required. Current version: ' + process.version); process.exit(1); } console.log('Node.js version OK:', process.version);"
+npm -v</pre>
+<h4>Step 3: Install PostgreSQL</h4>
+<p>PostgreSQL is a relational database. We use it to practise tables, keys and SQL commands.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">sudo apt-get update
+sudo apt-get install -y postgresql postgresql-contrib
+sudo systemctl enable postgresql
+sudo systemctl start postgresql
+sudo systemctl is-active --quiet postgresql && echo "PostgreSQL is running"</pre>
+<p>If the last command does not print <code>PostgreSQL is running</code>, inspect the service before continuing.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">sudo systemctl status postgresql --no-pager</pre>
+<h4>Step 4: Create the PostgreSQL user and database</h4>
+<p>We create one local classroom user and one local classroom database. The password <code>123456</code> is only for this local lab VM. The following command is repeatable: if the role already exists, it refreshes the password; if the database already exists, it keeps it and fixes the owner.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">sudo -u postgres psql -v ON_ERROR_STOP=1 &lt;&lt;'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'university_user') THEN
+    CREATE ROLE university_user LOGIN PASSWORD '123456';
+  ELSE
+    ALTER ROLE university_user WITH LOGIN PASSWORD '123456';
+  END IF;
+END
+$$;
+
+SELECT 'CREATE DATABASE university_db OWNER university_user'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'university_db')\gexec
+
+ALTER DATABASE university_db OWNER TO university_user;
+SQL</pre>
+<p>Check that the classroom account can connect.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">PGPASSWORD=123456 psql -v ON_ERROR_STOP=1 -h localhost -U university_user -d university_db -c "SELECT current_database(), current_user;"</pre>
+<h4>Step 5: Create PostgreSQL tables and seed data</h4>
+<p>This dataset is the same learning-platform example used in the lecture: students, courses, enrolments and posts.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">PGPASSWORD=123456 psql -v ON_ERROR_STOP=1 -h localhost -U university_user -d university_db &lt;&lt;'SQL'
+DROP TABLE IF EXISTS posts;
+DROP TABLE IF EXISTS enrolments;
+DROP TABLE IF EXISTS students;
+DROP TABLE IF EXISTS courses;
+
+CREATE TABLE students (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  major TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE courses (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL
+);
+
+CREATE TABLE enrolments (
+  student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
+  course_id TEXT REFERENCES courses(id) ON DELETE CASCADE,
+  PRIMARY KEY (student_id, course_id)
+);
+
+CREATE TABLE posts (
+  id TEXT PRIMARY KEY,
+  student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
+  topic TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO students (id, name, email, major) VALUES
+  ('S1', 'Alice Chen', 'alice.chen@example.edu', 'Computer Science'),
+  ('S2', 'Ben Taylor', 'ben.taylor@example.edu', 'Information Technology'),
+  ('S3', 'Chloe Wang', 'chloe.wang@example.edu', 'Data Science'),
+  ('S4', 'Daniel Smith', 'daniel.smith@example.edu', 'Cybersecurity'),
+  ('S5', 'Emma Li', 'emma.li@example.edu', 'Software Engineering');
+
+INSERT INTO courses (id, title) VALUES
+  ('C1', 'Python Programming'),
+  ('C2', 'Artificial Intelligence'),
+  ('C3', 'Computer Networking');
+
+INSERT INTO enrolments (student_id, course_id) VALUES
+  ('S1', 'C1'), ('S1', 'C2'), ('S2', 'C2'), ('S3', 'C3'), ('S5', 'C1'), ('S5', 'C3');
+
+INSERT INTO posts (id, student_id, topic, content) VALUES
+  ('P1', 'S1', 'Python', 'Alice shared a Python practice note.'),
+  ('P2', 'S1', 'AI', 'Alice asked a question about AI tools.'),
+  ('P3', 'S2', 'AI', 'Ben posted about model evaluation.'),
+  ('P4', 'S3', 'Networking', 'Chloe discussed packet routing.'),
+  ('P5', 'S4', 'Security', 'Daniel posted about password hashing.'),
+  ('P6', 'S5', 'Python/Networking', 'Emma connected Python scripts with networking.');
+
+SELECT id, name, major FROM students ORDER BY id;
+SQL</pre>
+<h4>Step 6: Manually practise PostgreSQL CRUD</h4>
+<p>Run these commands as one block. They show Create, Read, Update and Delete without Node.js. This is important because you should confirm the database works before blaming application code.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">PGPASSWORD=123456 psql -v ON_ERROR_STOP=1 -h localhost -U university_user -d university_db &lt;&lt;'SQL'
+\dt
+SELECT id, name, major FROM students ORDER BY id;
+
+INSERT INTO students (id, name, email, major)
+VALUES ('S9', 'Ivy Zhang', 'ivy.zhang@example.edu', 'Testing');
+
+SELECT id, name, major FROM students WHERE id = 'S9';
+
+UPDATE students
+SET major = 'Updated Testing Major'
+WHERE id = 'S9';
+
+SELECT id, name, major FROM students WHERE id = 'S9';
+
+DELETE FROM students WHERE id = 'S9';
+
+SELECT id, name, major FROM students ORDER BY id;
+SQL</pre>
+<h4>Step 7: Install MongoDB</h4>
+<p>MongoDB is a document database. Use the official MongoDB 8.0 Ubuntu repository. This lab assumes a fresh course VM. If you previously enabled MongoDB authentication with an unknown password, reset the VM or restore your MongoDB configuration before continuing.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">sudo apt-get install -y ca-certificates curl gnupg
+. /etc/os-release
+curl -fsSL https://pgp.mongodb.com/server-8.0.asc -o /tmp/mongodb-server-8.0.asc
+gpg --batch --yes --dearmor -o /tmp/mongodb-server-8.0.gpg /tmp/mongodb-server-8.0.asc
+sudo mv /tmp/mongodb-server-8.0.gpg /usr/share/keyrings/mongodb-server-8.0.gpg
+echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu ${UBUNTU_CODENAME}/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+sudo apt-get update
+sudo apt-get install -y mongodb-org
+sudo systemctl enable mongod
+sudo systemctl start mongod
+sudo systemctl is-active --quiet mongod && echo "MongoDB is running"</pre>
+<p>If MongoDB does not start, inspect its service log before continuing.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">sudo systemctl status mongod --no-pager
+sudo journalctl -u mongod -n 50 --no-pager</pre>
+<h4>Step 8: Create the MongoDB user</h4>
+<p>Create the same classroom user in MongoDB. This command is for a fresh local teaching VM before authorisation is enabled.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">mongosh --quiet &lt;&lt;'MONGO'
+use admin
+db.createUser({
+  user: "university_user",
+  pwd: "123456",
+  roles: [{ role: "readWrite", db: "university_db" }]
+})
+MONGO</pre>
+<p>If you are repeating the lab and the user already exists, update the password and role instead.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">mongosh --quiet &lt;&lt;'MONGO'
+use admin
+db.updateUser("university_user", {
+  pwd: "123456",
+  roles: [{ role: "readWrite", db: "university_db" }]
+})
+MONGO</pre>
+<h4>Step 9: Enable MongoDB authorisation safely</h4>
+<p>This block makes a timestamped backup and avoids adding duplicate <code>authorization</code> lines.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">sudo cp /etc/mongod.conf "/etc/mongod.conf.backup.$(date +%Y%m%d-%H%M%S)"
+if ! grep -q '^security:' /etc/mongod.conf; then
+  printf '\nsecurity:\n  authorization: enabled\n' | sudo tee -a /etc/mongod.conf
+elif grep -q '^[[:space:]]*authorization:' /etc/mongod.conf; then
+  sudo sed -i 's/^[[:space:]]*authorization:.*/  authorization: enabled/' /etc/mongod.conf
+else
+  sudo sed -i '/^security:/a\  authorization: enabled' /etc/mongod.conf
+fi
+sudo systemctl restart mongod
+sleep 3
+sudo systemctl is-active --quiet mongod && echo "MongoDB restarted with authorisation enabled"</pre>
+<h4>Step 10: Insert MongoDB documents</h4>
+<p>Connect with the classroom user and insert the MongoDB teaching dataset.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">mongosh "mongodb://university_user:123456@localhost:27017/university_db?authSource=admin" --quiet &lt;&lt;'MONGO'
+db.studentProfiles.drop()
+db.studentProfiles.insertMany([
+  {
+    studentId: "S1",
+    name: "Alice Chen",
+    email: "alice.chen@example.edu",
+    major: "Computer Science",
+    courses: ["Python Programming", "Artificial Intelligence"],
+    posts: [
+      { postId: "P1", topic: "Python", content: "Alice shared a Python practice note." },
+      { postId: "P2", topic: "AI", content: "Alice asked a question about AI tools." }
+    ]
+  },
+  {
+    studentId: "S5",
+    name: "Emma Li",
+    email: "emma.li@example.edu",
+    major: "Software Engineering",
+    courses: ["Python Programming", "Computer Networking"],
+    posts: [
+      { postId: "P6", topic: "Python/Networking", content: "Emma connected Python scripts with networking." }
+    ]
+  }
+])
+db.studentProfiles.createIndex({ studentId: 1 }, { unique: true })
+db.studentProfiles.find({}, { _id: 0, studentId: 1, name: 1, major: 1 }).pretty()
+MONGO</pre>
+<h4>Step 11: Manually practise MongoDB CRUD</h4>
+<p>Run this block to practise Create, Read, Update and Delete in MongoDB before using Node.js.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">mongosh "mongodb://university_user:123456@localhost:27017/university_db?authSource=admin" --quiet &lt;&lt;'MONGO'
+db.studentProfiles.find({}, { _id: 0, studentId: 1, name: 1, major: 1 }).pretty()
+
+db.studentProfiles.insertOne({
+  studentId: "S9",
+  name: "Ivy Zhang",
+  email: "ivy.zhang@example.edu",
+  major: "Testing",
+  courses: ["Database Systems"],
+  posts: []
+})
+
+db.studentProfiles.find({ studentId: "S9" }, { _id: 0 }).pretty()
+
+db.studentProfiles.updateOne(
+  { studentId: "S9" },
+  { $set: { major: "Updated Testing Major" } }
+)
+
+db.studentProfiles.find({ studentId: "S9" }, { _id: 0 }).pretty()
+
+db.studentProfiles.deleteOne({ studentId: "S9" })
+db.studentProfiles.find({}, { _id: 0, studentId: 1, name: 1, major: 1 }).pretty()
+MONGO</pre>
+<h4>Step 12: Prepare and run the Node.js code</h4>
+<p>Now move into the lab folder, install the fixed npm dependencies, and run each direct-driver demo. The dependencies are pinned in <code>package.json</code> and locked in <code>package-lock.json</code>, so <code>npm ci</code> installs the tested dependency tree.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">cd ~/Downloads/lab-v2/lab1-direct-postgresql-mongodb
+cp .env.example .env
+npm ci
+npm run start:postgres
+npm run start:mongo</pre>
+<p>The PostgreSQL program uses <code>INSERT ... ON CONFLICT</code>. The MongoDB program uses <code>updateOne(..., { upsert: true })</code>. Both are intentional: they make the CREATE step repeatable by refreshing the demo record if it already exists.</p>
+<h4>Step 13: Modify the code yourself</h4>
+<p>Open the folder in VS Code and make one small change at a time.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">code .</pre>
+<ul>
+  <li>Open <code>postgres_direct_crud.js</code>. Change <code>Grace Huang</code> to your own fake student name, then run <code>npm run start:postgres</code> again.</li>
+  <li>Comment out the DELETE block in <code>postgres_direct_crud.js</code>, run the file, then check PostgreSQL manually with <code>SELECT id, name, major FROM students ORDER BY id;</code>.</li>
+  <li>Open <code>mongodb_direct_crud.js</code>. Change the demo course added with <code>$addToSet</code>, then run <code>npm run start:mongo</code> again.</li>
+  <li>After testing, restore the DELETE blocks so the demo remains repeatable.</li>
+</ul>
+<h4>Expected outcome</h4>
+<p>By the end of Lab 1, you should be able to explain how PostgreSQL tables differ from MongoDB documents, how to manually test a database before using Node.js, and how direct database drivers send CRUD operations from application code.</p>

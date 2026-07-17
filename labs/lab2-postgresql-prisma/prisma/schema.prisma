@@ -1,0 +1,22 @@
+// Week 3 Lab V2 teaching schema.
+// Copyright (C) 2026 Dr Shuo Ding <shuoding@outlook.com>.
+// Licensed under AGPL-3.0-or-later. Copies and modified versions must retain this notice.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Student {
+  id        String   @id
+  name      String
+  email     String   @unique
+  major     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("students")
+}
