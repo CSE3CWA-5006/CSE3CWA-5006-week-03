@@ -1,0 +1,111 @@
+<!--
+  Week 3 Lab V2 teaching page.
+  Copyright (C) 2026 Dr Shuo Ding <shuoding@outlook.com>.
+  Licensed under AGPL-3.0-or-later. Copies and modified versions must retain this notice.
+-->
+<h3>Lab 2: PostgreSQL CRUD with Prisma ORM</h3>
+<p><strong>Copyright and licence:</strong> Copyright (C) 2026 Dr Shuo Ding &lt;shuoding@outlook.com&gt;. This teaching page and its accompanying code are released under the GNU Affero General Public License version 3 or later (AGPL-3.0-or-later). Copies and modified versions must retain the original author and licence notice.</p>
+<h4>Lab goal</h4>
+<p>In Lab 1 you used direct database drivers. In this lab you will use Prisma, an ORM, to access the same PostgreSQL <code>students</code> table through a model. The database is still PostgreSQL. Prisma does not replace the database. It gives your Node.js code a structured model layer on top of it.</p>
+<div class="alert alert-success"
+  style="background-color: #d9ebd0; color: #242424; margin: 0 auto; max-width: 800px;"
+  role="alert">
+  <div class="row">
+    <div class="col-1">
+      <p class="fa fa-lightbulb-o" style="font-size: 1.5rem;"
+        aria-hidden="true">&nbsp;</p>
+    </div>
+    <div class="col-11">
+      <p><strong>Why use an ORM?</strong></p>
+      <p>An ORM maps database tables to application models. It can reduce repeated SQL strings, centralise schema knowledge, and make ordinary CRUD code easier to read. The trade-off is that you must still understand the real database underneath, especially indexes, constraints, migrations and query performance.</p>
+    </div>
+  </div>
+</div>
+<h4>Step 1: Start from the lab folder</h4>
+<p>Begin from the unzipped lab root so the paths match this page.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">cd ~/Downloads/lab-v2
+pwd
+ls</pre>
+<h4>Step 2: Confirm Lab 1 PostgreSQL is working</h4>
+<p>Do not start Prisma until the database works manually. Run this check first.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">sudo systemctl start postgresql
+PGPASSWORD=123456 psql -v ON_ERROR_STOP=1 -h localhost -U university_user -d university_db -c "SELECT id, name, major FROM students ORDER BY id;"</pre>
+<p>If this command fails, return to Lab 1 and fix PostgreSQL first.</p>
+<h4>Step 3: Open the Prisma lab folder</h4>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">cd ~/Downloads/lab-v2/lab2-postgresql-prisma
+cp .env.example .env
+cat .env</pre>
+<p>The connection string should point to the same database from Lab 1:</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">DATABASE_URL=postgresql://university_user:123456@localhost:5432/university_db?schema=public</pre>
+<h4>Step 4: Install Prisma packages</h4>
+<p>The package versions are fixed in <code>package.json</code>: <code>@prisma/client</code> 6.19.3 is the runtime client and <code>prisma</code> 6.19.3 is the development CLI used to generate the client. The supplied <code>package-lock.json</code> file locks the full dependency tree, so use <code>npm ci</code> for repeatable installation.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">npm ci</pre>
+<h4>Step 5: Read the Prisma schema</h4>
+<p>Use Ubuntu's built-in <code>nano</code> editor to inspect <code>prisma/schema.prisma</code>. The important part is the <code>Student</code> model.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">nano prisma/schema.prisma</pre>
+<p>Use the arrow keys to read the file. Do not change the schema in this step. Press <code>Ctrl + X</code> to exit.</p>
+<p>The line <code>@@map("students")</code> means the Prisma model named <code>Student</code> maps to the existing PostgreSQL table named <code>students</code>. The line <code>@map("created_at")</code> means the JavaScript field <code>createdAt</code> maps to the SQL column <code>created_at</code>.</p>
+<h4>Step 6: Generate Prisma Client</h4>
+<p>Prisma Client is generated code. Your application imports it and uses it to run model-based database operations.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">npm run generate</pre>
+<h4>Step 7: Run the Prisma CRUD demo</h4>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">npm start</pre>
+<p>You should see the students table printed several times: before changes, after create, after update, and after delete. The CREATE section uses <code>upsert</code>, not plain <code>create</code>, so the demo can be run repeatedly. If S7 already exists, Prisma updates it instead of failing with a duplicate primary key error.</p>
+<h4>Step 8: Verify the completed Lab 2 state</h4>
+<p>The Prisma program deletes its temporary S7 record before it exits. Confirm the same final state checked by the teacher verification script.</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">PGPASSWORD=123456 psql -v ON_ERROR_STOP=1 -h localhost -U university_user -d university_db &lt;&lt;'SQL'
+SELECT CASE WHEN COUNT(*) = 5 THEN 'PostgreSQL student count: PASS' ELSE 'PostgreSQL student count: CHECK' END AS result FROM students;
+SELECT CASE WHEN COUNT(*) = 0 THEN 'Prisma temporary S7 removed: PASS' ELSE 'Prisma temporary S7 removed: CHECK' END AS result FROM students WHERE id = 'S7';
+SQL</pre>
+<p>You should see two <code>PASS</code> messages.</p>
+<h4>Step 9: Modify the Prisma code yourself</h4>
+<p>Open <code>prisma_crud.js</code> with Ubuntu's built-in <code>nano</code> editor:</p>
+<pre class="code-window"
+  style="background: #0b1220; color: #d7e3f4; font-family: Consolas,'Courier New',monospace; font-size: 0.88rem; line-height: 1.6; padding: 1rem 1.2rem; border-radius: 10px; overflow-x: auto; margin: 1rem 0 1rem; border: 1px solid #24324a; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04); white-space: pre; display: block;">nano prisma_crud.js</pre>
+<p>In <code>nano</code>, press <code>Ctrl + O</code>, then <code>Enter</code> to save. Press <code>Ctrl + X</code> to exit.</p>
+<ul>
+  <li>Find the <code>upsert</code> block. Change <code>Henry Wilson</code> to another fake student name.</li>
+  <li>Change the fake email address.</li>
+  <li>Run <code>npm start</code> again.</li>
+  <li>Find the filter where <code>major</code> contains <code>Web</code>. Change it to <code>Cloud</code> and run again.</li>
+  <li>Temporarily comment out the DELETE block. Run the program, then manually check PostgreSQL with <code>SELECT id, name, major FROM students ORDER BY id;</code>.</li>
+  <li>Restore the DELETE block, save the file, and run <code>npm start</code> again. Repeat the Step 8 verification and confirm that both results are <code>PASS</code>.</li>
+</ul>
+<h4>Step 10: Compare direct SQL and Prisma</h4>
+<table class="compare">
+  <thead>
+    <tr>
+      <th>Question</th>
+      <th>Direct SQL</th>
+      <th>Prisma</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>How does code create a student?</td>
+      <td><code>INSERT INTO students...</code></td>
+      <td><code>prisma.student.upsert()</code> in this repeatable teaching demo</td>
+    </tr>
+    <tr>
+      <td>Where is the data stored?</td>
+      <td>PostgreSQL table</td>
+      <td>The same PostgreSQL table</td>
+    </tr>
+    <tr>
+      <td>What does Prisma add?</td>
+      <td>No extra model layer</td>
+      <td>A generated model-based client</td>
+    </tr>
+  </tbody>
+</table>
+<h4>Expected outcome</h4>
+<p>By the end of Lab 2, you should be able to explain why an ORM can make application code more organised, while still recognising that the underlying database design remains important.</p>
