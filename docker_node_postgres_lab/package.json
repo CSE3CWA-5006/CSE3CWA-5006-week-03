@@ -1,0 +1,21 @@
+{
+  "name": "cwa-docker-postgresql-pg-direct-lab",
+  "version": "2.0.0",
+  "private": true,
+  "description": "CSE3CWA/CSE5006 Docker PostgreSQL and Node.js direct-driver teaching lab",
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "start": "node index.js",
+    "verify": "node verify.js",
+    "check": "node --check index.js && node --check verify.js"
+  },
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=11"
+  },
+  "dependencies": {
+    "dotenv": "17.4.2",
+    "pg": "8.22.0"
+  }
+}
